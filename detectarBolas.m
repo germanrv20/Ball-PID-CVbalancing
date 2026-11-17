@@ -11,6 +11,7 @@ cfg.plateSmin = 0.40;
 cfg.plateVmin = 0.15;
 
 cfg.areaMinRelativa = 0.01;
+cfg.circularidadMin = 0.80;
 
 cfg.plot = true;
 
@@ -107,26 +108,52 @@ if any(base(:))
 
     %% 7. SELECCIONAR UNA UNICA BOLA
 
-    stats = regionprops(bolas, 'Area', 'Centroid');
+stats = regionprops(bolas, ...
+    'Area', 'Centroid', 'Perimeter', 'BoundingBox');
 
-    if ~isempty(stats)
+if ~isempty(stats)
 
-        areas = [stats.Area];
+    % Obtener propiedades
+    areas = [stats.Area];
+    perimetros = [stats.Perimeter];
 
-        % Seleccionar la region de mayor area
-        [areaMax, idx] = max(areas);
+    ancho = arrayfun(@(s) s.BoundingBox(3), stats);
+    alto  = arrayfun(@(s) s.BoundingBox(4), stats);
 
-        if areaMax >= areaMinima
+    % Calcular circularidad
+    circularidad = 4*pi*areas ./ (perimetros.^2);
 
-            ccBola = stats(idx).Centroid;
+    % Calcular relacion ancho/alto
+    relacion = min(ancho, alto) ./ max(ancho, alto);
 
-            centroBola = 1 + (ccBola - 1) * cfg.paso;
+    % Calcular extension
+    extension = areas ./ (ancho .* alto);
 
-            bolaDetectada = true;
+    % Comprobar condiciones
+    validas = areas >= areaMinima & ...
+              circularidad >= 0.80 & ...
+              relacion >= 0.85 & ...
+              extension <= 0.90;
 
-        end
+    % Sustituir las areas no validas por cero
+    areasValidas = areas;
+    areasValidas(~validas) = 0;
+
+    % Buscar la region valida de mayor area
+    [areaMaxima, idx] = max(areasValidas);
+
+    if areaMaxima > 0
+
+        % Obtener centro de la bola
+        ccBola = stats(idx).Centroid;
+
+        centroBola = 1 + (ccBola - 1) * cfg.paso;
+
+        bolaDetectada = true;
+
     end
 
+end
 end
 
 
