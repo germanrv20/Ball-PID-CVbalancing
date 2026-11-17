@@ -1,5 +1,4 @@
-
-function [centroBola, centroBase, radioBase, mmPorPixel, ...
+function [centroBola_x, centroBola_y, centroBase_x, centroBase_y, radioBase, mmPorPixel, ...
           baseDetectada, bolaDetectada] = detectarBolas(imagen)
 
 %% 1. PARAMETROS
@@ -45,8 +44,10 @@ azul = hsv(:,:,1) >= cfg.plateH(1) & ...
 
 %% 4. INICIALIZAR SALIDAS
 
-centroBola = [NaN NaN];
-centroBase = [NaN NaN];
+centroBola_x = NaN;
+centroBola_y = NaN;
+centroBase_x = NaN;
+centroBase_y = NaN;
 
 radioBase = NaN;
 mmPorPixel = NaN;
@@ -78,7 +79,9 @@ if any(base(:))
     ccBase = pl(1).Centroid;
 
     centroBase = 1 + (ccBase - 1) * cfg.paso;
-
+    centroBase_x = centroBase(1);
+    centroBase_y = centroBase(2);
+    
     radioBase = (pl(1).EquivDiameter / 2) * cfg.paso;
 
     % Conversion de pixeles a milimetros
@@ -150,6 +153,8 @@ if ~isempty(stats)
         centroBola = 1 + (ccBola - 1) * cfg.paso;
 
         bolaDetectada = true;
+        centroBola_x = centroBola(1);
+        centroBola_y = centroBola(2);
 
     end
 
@@ -159,61 +164,61 @@ end
 
 %% 8. PLOT
 
-persistent fig ax1 ax2 hImagen hMascara hBase hBola
-
-if cfg.plot
-
-    % Crear ventana solo la primera vez
-    if isempty(fig) || ~isgraphics(fig)
-
-        fig = figure('Name', 'Deteccion de bolas', ...
-                     'NumberTitle', 'off');
-
-        ax1 = subplot(1,2,1, 'Parent', fig);
-
-        hImagen = imshow(imagen, 'Parent', ax1);
-        hold(ax1, 'on');
-
-        hBase = plot(ax1, NaN, NaN, ...
-                     'r+', 'MarkerSize', 12, 'LineWidth', 2);
-
-        hBola = plot(ax1, NaN, NaN, ...
-                     'g+', 'MarkerSize', 12, 'LineWidth', 2);
-
-        title(ax1, 'Imagen original');
-
-        ax2 = subplot(1,2,2, 'Parent', fig);
-
-        hMascara = imshow(bolas, 'Parent', ax2);
-
-        title(ax2, 'Mascara binaria');
-
-    end
-
-    % Actualizar imagen original
-    set(hImagen, 'CData', imagen);
-
-    % Actualizar mascara binaria
-    set(hMascara, 'CData', bolas);
-
-    % Actualizar centro de la plataforma
-    if baseDetectada
-        set(hBase, 'XData', centroBase(1), ...
-                   'YData', centroBase(2));
-    else
-        set(hBase, 'XData', NaN, 'YData', NaN);
-    end
-
-    % Actualizar centro de la bola
-    if bolaDetectada
-        set(hBola, 'XData', centroBola(1), ...
-                   'YData', centroBola(2));
-    else
-        set(hBola, 'XData', NaN, 'YData', NaN);
-    end
-
-    drawnow limitrate;
-
-end
+% persistent fig ax1 ax2 hImagen hMascara hBase hBola
+% 
+% if cfg.plot
+% 
+%     % Crear ventana solo la primera vez
+%     if isempty(fig) || ~isgraphics(fig)
+% 
+%         fig = figure('Name', 'Deteccion de bolas', ...
+%                      'NumberTitle', 'off');
+% 
+%         ax1 = subplot(1,2,1, 'Parent', fig);
+% 
+%         hImagen = imshow(imagen, 'Parent', ax1);
+%         hold(ax1, 'on');
+% 
+%         hBase = plot(ax1, NaN, NaN, ...
+%                      'r+', 'MarkerSize', 12, 'LineWidth', 2);
+% 
+%         hBola = plot(ax1, NaN, NaN, ...
+%                      'g+', 'MarkerSize', 12, 'LineWidth', 2);
+% 
+%         title(ax1, 'Imagen original');
+% 
+%         ax2 = subplot(1,2,2, 'Parent', fig);
+% 
+%         hMascara = imshow(bolas, 'Parent', ax2);
+% 
+%         title(ax2, 'Mascara binaria');
+% 
+%     end
+% 
+%     % Actualizar imagen original
+%     set(hImagen, 'CData', imagen);
+% 
+%     % Actualizar mascara binaria
+%     set(hMascara, 'CData', bolas);
+% 
+%     % Actualizar centro de la plataforma
+%     if baseDetectada
+%         set(hBase, 'XData', centroBase(1), ...
+%                    'YData', centroBase(2));
+%     else
+%         set(hBase, 'XData', NaN, 'YData', NaN);
+%     end
+% 
+%     % Actualizar centro de la bola
+%     if bolaDetectada
+%         set(hBola, 'XData', centroBola(1), ...
+%                    'YData', centroBola(2));
+%     else
+%         set(hBola, 'XData', NaN, 'YData', NaN);
+%     end
+% 
+%     drawnow limitrate;
+% 
+% end
 
 end
