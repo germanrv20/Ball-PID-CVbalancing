@@ -2,7 +2,6 @@
 function [centroBolas, centroBase, radioBase] = detectarBolas()
 
 clc;
-close all;
 
 %% 1. PARAMETROS
 
@@ -10,7 +9,7 @@ cfg.paso      = 2;              % Reduccion de resolucion
 cfg.plateH    = [0.55 0.75];    % Matiz del plato azul
 cfg.plateSmin = 0.40;           % Saturacion minima
 cfg.plateVmin = 0.15;           % Brillo minimo
-cfg.minArea   = 150;            % Area minima de las bolas
+cfg.minArea   = 150;            % Area minima de una bola
 
 margen = 6;                     % Margen respecto al borde
 
@@ -61,42 +60,35 @@ for k = 1:5
     snapshot(cam);
 end
 
-%% 4. CREAR VENTANA
+%% 4. VISUALIZACION (DESACTIVADA)
 
-imagen = snapshot(cam);
-
-sub = imagen(1:cfg.paso:end, 1:cfg.paso:end, :);
-
-vacio = false(size(sub,1), size(sub,2));
-
-fig = figure('Name', 'Deteccion de bolas', ...
-             'NumberTitle', 'off');
-
-% Imagen original con detecciones
-ax1 = subplot(1,3,1);
-
-hOv = imshow(sub);
-title('Original + deteccion');
-
-hold(ax1, 'on');
-
-hBolasPts = plot(ax1, nan, nan, 'g+', ...
-                 'MarkerSize', 14, 'LineWidth', 2);
-
-hPlatoPt = plot(ax1, nan, nan, 'rx', ...
-                'MarkerSize', 14, 'LineWidth', 2);
-
-% Plato binarizado
-subplot(1,3,2);
-
-hBase = imshow(vacio);
-title('Plato binarizado');
-
-% Bolas binarizadas
-subplot(1,3,3);
-
-hBol = imshow(vacio);
-title('Bolas binarizadas');
+% Para activar la visualizacion, descomentar este apartado
+%
+% imagen = snapshot(cam);
+% sub = imagen(1:cfg.paso:end, 1:cfg.paso:end, :);
+% vacio = false(size(sub,1), size(sub,2));
+%
+% fig = figure('Name', 'Deteccion de bolas', ...
+%              'NumberTitle', 'off');
+%
+% ax1 = subplot(1,3,1);
+% hOv = imshow(sub);
+% title('Original + deteccion');
+% hold(ax1, 'on');
+%
+% hBolasPts = plot(ax1, nan, nan, 'g+', ...
+%                  'MarkerSize', 14, 'LineWidth', 2);
+%
+% hPlatoPt = plot(ax1, nan, nan, 'rx', ...
+%                 'MarkerSize', 14, 'LineWidth', 2);
+%
+% subplot(1,3,2);
+% hBase = imshow(vacio);
+% title('Plato binarizado');
+%
+% subplot(1,3,3);
+% hBol = imshow(vacio);
+% title('Bolas binarizadas');
 
 %% 5. INICIALIZAR SALIDAS
 
@@ -106,7 +98,7 @@ radioBase = NaN;
 
 %% 6. BUCLE DE DETECCION EN TIEMPO REAL
 
-while ishandle(fig)
+while true
 
     % Capturar imagen
     imagen = snapshot(cam);
@@ -179,27 +171,27 @@ while ishandle(fig)
 
     end
 
-    %% ACTUALIZAR VISUALIZACION
+    %% 7. VISUALIZACION EN TIEMPO REAL (DESACTIVADA)
 
-    set(hOv, 'CData', sub);
-
-    set(hBase, 'CData', base);
-
-    set(hBol, 'CData', bolas);
-
-    set(hBolasPts, ...
-        'XData', ccBolas(:,1), ...
-        'YData', ccBolas(:,2));
-
-    set(hPlatoPt, ...
-        'XData', ccBase(1), ...
-        'YData', ccBase(2));
-
-    drawnow limitrate;
+    % Para activar, descomentar este apartado y el apartado 4
+    %
+    % set(hOv, 'CData', sub);
+    % set(hBase, 'CData', base);
+    % set(hBol, 'CData', bolas);
+    %
+    % set(hBolasPts, ...
+    %     'XData', ccBolas(:,1), ...
+    %     'YData', ccBolas(:,2));
+    %
+    % set(hPlatoPt, ...
+    %     'XData', ccBase(1), ...
+    %     'YData', ccBase(2));
+    %
+    % drawnow limitrate;
 
 end
 
-%% 7. LIBERAR CAMARA
+%% 8. LIBERAR CAMARA
 
 clear cam;
 
