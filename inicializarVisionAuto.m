@@ -92,8 +92,8 @@ img = [];
 
 for intento = 1:15
 
-    imgTemporal = snapshot(cam);
-
+    imgTemporal = undistortImage(snapshot(cam), cameraParams);
+    
     if max(imgTemporal(:)) > 10
 
         img = imgTemporal;
@@ -139,7 +139,6 @@ dimensionMin = min(alto,ancho);
 %% =========================================================
 
 fprintf('\nDetectando plataforma...\n');
-
 
 % Busqueda suficientemente amplia para la plataforma
 
@@ -330,7 +329,7 @@ fprintf('\nCapturando fondo...\n');
 for k = 1:numFramesFondo
 
 
-    frame = snapshot(cam);
+    frame = undistortImage(snapshot(cam), cameraParams);
 
 
     if size(frame,3) == 3
@@ -379,10 +378,6 @@ fprintf('calibracionVisionAuto.mat\n');
 %% =========================================================
 %% 13. ESPERAR A QUE SE COLOQUE LA BOLA
 %% =========================================================
-
-input( ...
-    '\nColoca ahora la bola y pulsa ENTER para continuar...', ...
-    's');
 
 
 if isgraphics(fig)

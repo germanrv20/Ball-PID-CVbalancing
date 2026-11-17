@@ -93,7 +93,7 @@ actualizarImagenCada = 5;
 %% 5. FIGURA DE SUPERVISION
 %% =========================================================
 
-img = snapshot(cam);
+img = undistortImage(snapshot(cam), cameraParams);
 
 
 fig = figure( ...
@@ -200,7 +200,7 @@ while isgraphics(fig)
 
     try
 
-        img = snapshot(cam);
+        img = undistortImage(snapshot(cam), cameraParams);
 
     catch
 

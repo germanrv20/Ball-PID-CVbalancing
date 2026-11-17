@@ -62,8 +62,8 @@ pause(1);
 %% =========================================================
 
 % Proporcional
-KpX = 0.026;
-KpY = 0.026;
+KpX = 0.010;%0.026;
+KpY = 0.010;%0.026;
 
 
 % Derivativo
@@ -77,7 +77,7 @@ KiY = 0.001;
 
 
 % Inclinacion maxima de la plataforma
-betaMax = 5.0;              % grados
+betaMax = 10.0;              % grados
 
 
 % Contribucion maxima permitida del integral
@@ -114,7 +114,7 @@ actualizarImagenCada = 5;
 %% 5. FIGURA
 %% =========================================================
 
-img = snapshot(cam);
+img = undistortImage(snapshot(cam), cameraParams);
 
 fig = figure( ...
     'Name','Control PID', ...
@@ -217,7 +217,7 @@ while isgraphics(fig)
 
     try
 
-        img = snapshot(cam);
+        img = undistortImage(snapshot(cam), cameraParams);
 
     catch
 
