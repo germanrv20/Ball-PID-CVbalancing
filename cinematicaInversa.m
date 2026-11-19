@@ -2,20 +2,22 @@ function [q1,q2] = cinematicaInversa(betaX,betaY)
 
 %% GEOMETRIA [mm]
 
-P1_0 = [0;    77.6; 10.5];
-P2_0 = [77.6; 0;    10.5];
+P1_0 = [0;    80.0; 10.5];  % Enganche superior a 8 cm (80 mm) del centro
+P2_0 = [80.0; 0;    10.5];
 
 S1 = [0;    55.8; -40.4];
 S2 = [55.8; 0;    -40.4];
 
 r = 22.1;
-L = 47.5;
+L = 50.2;
 
 q_neutro = 90;
 
-% Angulo geometrico del brazo en posicion neutra
-theta0 = 8.8499;
-
+% Cálculo automático del ángulo geométrico en posición neutra (0° de plato)
+d0   = P1_0 - S1;
+C0   = (sum(d0.^2) + r^2 - L^2) / (2 * r);
+rho0 = hypot(d0(2), d0(3));
+theta0 = atan2d(d0(3), d0(2)) - acosd(C0 / rho0);
 
 %% MATRICES DE ROTACION
 

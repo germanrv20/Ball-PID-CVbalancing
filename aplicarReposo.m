@@ -5,8 +5,8 @@ function [betaX_IK,betaY_IK] = aplicarReposo(betaX,betaY)
 %% =====================================================
 
 % Punto experimental donde la plataforma queda en reposo
-betaX0 = 0;
-betaY0 = 1;
+betaX0 = -1;
+betaY0 =  3;
 
 % Convertir pendientes relativas al nuevo cero en pendientes
 % que entiende la cinematica inversa geometrica

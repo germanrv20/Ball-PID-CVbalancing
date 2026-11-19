@@ -4,7 +4,7 @@ function moverPlataforma(betaX,betaY,puerto)
 %% LIMITE DE SEGURIDAD
 %% =====================================================
 
-betaMaxIK = 15;
+betaMaxIK = 12;
 
 %% =====================================================
 %% APLICAR NUEVO PUNTO DE REPOSO

@@ -2,223 +2,183 @@ function [centroBola_x, centroBola_y, centroBase_x, centroBase_y, radioBase, mmP
           baseDetectada, bolaDetectada] = detectarBolas(imagen)
 
 %% 1. PARAMETROS
-
 cfg.paso = 3;
 
-cfg.plateH = [0.55 0.75];
-cfg.plateSmin = 0.40;
+% El plato azul es muy saturado (S > 0.65); subir plateSmin evita cortar
+% el reflejo azulado sobre la mitad superior de la bola metalica
+cfg.plateH    = [0.55 0.75];
+cfg.plateSmin = 0.62;
 cfg.plateVmin = 0.15;
 
-cfg.areaMinRelativa = 0.01;
-cfg.circularidadMin = 0.80;
+cfg.areaMinRelativa = 0.0040;
+cfg.areaMaxRelativa = 0.0650;
+cfg.circularidadMin = 0.70;
+cfg.radioUtilRel    = 0.84;
 
-cfg.plot = true;
+cfg.plot = false;
 
-% Elementos estructurantes
-persistent seC seM seO
+persistent seC seM seO seB ultBola framesPerdidos
 
 if isempty(seC)
-    seC = strel('disk', 1);
-    seM = strel('disk', 3);
+    seC = strel('disk', 2);
+    seM = strel('disk', 4);
     seO = strel('disk', 1);
+    seB = strel('disk', 2);
+    ultBola = [];
+    framesPerdidos = 0;
 end
 
-% Radio real de la plataforma
 radioPlataforma_mm = 75;
 
-
 %% 2. REDUCIR RESOLUCION
-
-sub = imagen(1:cfg.paso:end, 1:cfg.paso:end, :);
-
+sub = im2single(imagen(1:cfg.paso:end, 1:cfg.paso:end, :));
+R_ch = sub(:,:,1);
 
 %% 3. SEGMENTACION HSV
+hsv = rgb2hsv(sub);
+H = hsv(:,:,1);
+S = hsv(:,:,2);
+V = hsv(:,:,3);
 
-hsv = rgb2hsv(im2single(sub));
-
-azul = hsv(:,:,1) >= cfg.plateH(1) & ...
-       hsv(:,:,1) <= cfg.plateH(2) & ...
-       hsv(:,:,2) >= cfg.plateSmin & ...
-       hsv(:,:,3) >= cfg.plateVmin;
-
+azul = H >= cfg.plateH(1) & H <= cfg.plateH(2) & ...
+       S >= cfg.plateSmin & V >= cfg.plateVmin;
 
 %% 4. INICIALIZAR SALIDAS
-
 centroBola_x = NaN;
 centroBola_y = NaN;
 centroBase_x = NaN;
 centroBase_y = NaN;
-
-radioBase = NaN;
-mmPorPixel = NaN;
+radioBase    = NaN;
+mmPorPixel   = NaN;
 
 baseDetectada = false;
 bolaDetectada = false;
-
 bolas = false(size(azul));
 
-
 %% 5. DETECTAR PLATAFORMA
-
-% Cerrar pequenos huecos en la mascara azul
 azulCerrado = imclose(azul, seC);
-
-% Conservar la region azul de mayor area
 base = bwareafilt(azulCerrado, 1);
 
 if any(base(:))
-
     baseDetectada = true;
 
-    % Envolver la plataforma
     hull = bwconvhull(base);
-
-    % Obtener centro y diametro
     pl = regionprops(hull, 'Centroid', 'EquivDiameter');
 
     ccBase = pl(1).Centroid;
+    centroBase_x = 1 + (ccBase(1) - 1) * cfg.paso;
+    centroBase_y = 1 + (ccBase(2) - 1) * cfg.paso;
 
-    centroBase = 1 + (ccBase - 1) * cfg.paso;
-    centroBase_x = centroBase(1);
-    centroBase_y = centroBase(2);
-    
     radioBase = (pl(1).EquivDiameter / 2) * cfg.paso;
-
-    % Conversion de pixeles a milimetros
     mmPorPixel = radioPlataforma_mm / radioBase;
 
-
-    %% 6. DETECTAR BOLA
-
-    % Crear region interior de la plataforma
+    %% 6. DETECTAR BOLA METALICA (INCLUYENDO SU BRILLO ESPECULAR)
     roi = imerode(hull, seM);
 
-    % Bola = interior de la plataforma que no es azul
-    bolas = roi & ~azul;
+    % Todo lo que dentro del plato no sea azul saturado o tenga componente gris/blanca
+    bolas = roi & (~azul | R_ch > 0.22);
 
-    % Area minima de una posible bola
     radioBaseReducido = radioBase / cfg.paso;
-
-    areaBase = pi * radioBaseReducido^2;
-
+    areaBase   = pi * radioBaseReducido^2;
     areaMinima = cfg.areaMinRelativa * areaBase;
+    areaMaxima = cfg.areaMaxRelativa * areaBase;
 
-    % Eliminar pequenos objetos y ruido
+    % Cerrar bordes y rellenar el brillo blanco interior de la esfera
+    bolas = imclose(bolas, seB);
+    bolas = imfill(bolas, 'holes');
     bolas = imopen(bolas, seO);
-
-    bolas = bwareaopen(bolas, ceil(areaMinima));
-
+    bolas = bwareaopen(bolas, max(8, ceil(areaMinima)));
 
     %% 7. SELECCIONAR UNA UNICA BOLA
+    stats = regionprops(bolas, 'Area', 'Centroid', 'Perimeter', 'BoundingBox');
 
-stats = regionprops(bolas, ...
-    'Area', 'Centroid', 'Perimeter', 'BoundingBox');
+    if ~isempty(stats)
+        areas      = [stats.Area]';
+        perimetros = max([stats.Perimeter]', 1);
 
-if ~isempty(stats)
+        ancho = arrayfun(@(s) s.BoundingBox(3), stats); ancho = ancho(:);
+        alto  = arrayfun(@(s) s.BoundingBox(4), stats); alto  = alto(:);
 
-    % Obtener propiedades
-    areas = [stats.Area];
-    perimetros = [stats.Perimeter];
+        circularidad = 4 * pi * areas ./ (perimetros.^2);
+        relacion     = min(ancho, alto) ./ max(ancho, alto);
+        extension    = areas ./ (ancho .* alto);
 
-    ancho = arrayfun(@(s) s.BoundingBox(3), stats);
-    alto  = arrayfun(@(s) s.BoundingBox(4), stats);
+        centros = reshape([stats.Centroid], 2, [])';
+        cx_full = 1 + (centros(:,1) - 1) * cfg.paso;
+        cy_full = 1 + (centros(:,2) - 1) * cfg.paso;
+        distCentroPx = hypot(cx_full - centroBase_x, cy_full - centroBase_y);
 
-    % Calcular circularidad
-    circularidad = 4*pi*areas ./ (perimetros.^2);
+        validas = (areas >= areaMinima) & ...
+                  (areas <= areaMaxima) & ...
+                  (circularidad >= cfg.circularidadMin) & ...
+                  (relacion >= 0.76) & ...
+                  (extension >= 0.55) & ...
+                  (extension <= 0.92) & ...
+                  (distCentroPx <= cfg.radioUtilRel * radioBase);
+        validas = validas(:);
 
-    % Calcular relacion ancho/alto
-    relacion = min(ancho, alto) ./ max(ancho, alto);
+        if ~isempty(ultBola) && any(validas(:))
+            salto_mm = hypot(cx_full - ultBola(1), cy_full - ultBola(2)) * mmPorPixel;
+            cercanas = validas & (salto_mm <= 32.0);
+            if any(cercanas(:))
+                validas = cercanas;
+            end
+        end
 
-    % Calcular extension
-    extension = areas ./ (ancho .* alto);
+        puntuacion = zeros(numel(areas), 1);
+        for k = 1:numel(areas)
+            if validas(k)
+                bonusCercania = 1.0;
+                if ~isempty(ultBola)
+                    d_mm = hypot(cx_full(k) - ultBola(1), cy_full(k) - ultBola(2)) * mmPorPixel;
+                    bonusCercania = 1.0 / (1.0 + d_mm / 12.0);
+                end
+                puntuacion(k) = min(circularidad(k), 1.05) * bonusCercania;
+            end
+        end
 
-    % Comprobar condiciones
-    validas = areas >= areaMinima & ...
-              circularidad >= 0.80 & ...
-              relacion >= 0.85 & ...
-              extension <= 0.90;
+        [mejorScore, idx] = max(puntuacion);
 
-    % Sustituir las areas no validas por cero
-    areasValidas = areas;
-    areasValidas(~validas) = 0;
+        if mejorScore > 0
+            bolaDetectada  = true;
+            centroBola_x   = cx_full(idx);
+            centroBola_y   = cy_full(idx);
+            ultBola        = [centroBola_x, centroBola_y];
+            framesPerdidos = 0;
+        end
+    end
+end
 
-    % Buscar la region valida de mayor area
-    [areaMaxima, idx] = max(areasValidas);
+if ~bolaDetectada
+    framesPerdidos = framesPerdidos + 1;
+    if framesPerdidos > 12
+        ultBola = [];
+    end
+end
 
-    if areaMaxima > 0
+%% 8. PLOT DE DEPURACION
+persistent fig ax1 ax2 hImagen hMascara hBase hBola
 
-        % Obtener centro de la bola
-        ccBola = stats(idx).Centroid;
+if cfg.plot
+    if isempty(fig) || ~isgraphics(fig)
+        fig = figure('Name', 'Depuracion detectarBolas', 'NumberTitle', 'off');
+        ax1 = subplot(1,2,1, 'Parent', fig);
+        hImagen = imshow(imagen, 'Parent', ax1);
+        hold(ax1, 'on');
+        hBase = plot(ax1, NaN, NaN, 'r+', 'MarkerSize', 12, 'LineWidth', 2);
+        hBola = plot(ax1, NaN, NaN, 'g+', 'MarkerSize', 12, 'LineWidth', 2);
+        title(ax1, 'Imagen original');
 
-        centroBola = 1 + (ccBola - 1) * cfg.paso;
-
-        bolaDetectada = true;
-        centroBola_x = centroBola(1);
-        centroBola_y = centroBola(2);
-
+        ax2 = subplot(1,2,2, 'Parent', fig);
+        hMascara = imshow(bolas, 'Parent', ax2);
+        title(ax2, 'Mascara candidata');
     end
 
+    set(hImagen, 'CData', imagen);
+    set(hMascara, 'CData', bolas);
+    set(hBase, 'XData', centroBase_x, 'YData', centroBase_y);
+    set(hBola, 'XData', centroBola_x, 'YData', centroBola_y);
+    drawnow limitrate;
 end
-end
-
-
-%% 8. PLOT
-
-% persistent fig ax1 ax2 hImagen hMascara hBase hBola
-% 
-% if cfg.plot
-% 
-%     % Crear ventana solo la primera vez
-%     if isempty(fig) || ~isgraphics(fig)
-% 
-%         fig = figure('Name', 'Deteccion de bolas', ...
-%                      'NumberTitle', 'off');
-% 
-%         ax1 = subplot(1,2,1, 'Parent', fig);
-% 
-%         hImagen = imshow(imagen, 'Parent', ax1);
-%         hold(ax1, 'on');
-% 
-%         hBase = plot(ax1, NaN, NaN, ...
-%                      'r+', 'MarkerSize', 12, 'LineWidth', 2);
-% 
-%         hBola = plot(ax1, NaN, NaN, ...
-%                      'g+', 'MarkerSize', 12, 'LineWidth', 2);
-% 
-%         title(ax1, 'Imagen original');
-% 
-%         ax2 = subplot(1,2,2, 'Parent', fig);
-% 
-%         hMascara = imshow(bolas, 'Parent', ax2);
-% 
-%         title(ax2, 'Mascara binaria');
-% 
-%     end
-% 
-%     % Actualizar imagen original
-%     set(hImagen, 'CData', imagen);
-% 
-%     % Actualizar mascara binaria
-%     set(hMascara, 'CData', bolas);
-% 
-%     % Actualizar centro de la plataforma
-%     if baseDetectada
-%         set(hBase, 'XData', centroBase(1), ...
-%                    'YData', centroBase(2));
-%     else
-%         set(hBase, 'XData', NaN, 'YData', NaN);
-%     end
-% 
-%     % Actualizar centro de la bola
-%     if bolaDetectada
-%         set(hBola, 'XData', centroBola(1), ...
-%                    'YData', centroBola(2));
-%     else
-%         set(hBola, 'XData', NaN, 'YData', NaN);
-%     end
-% 
-%     drawnow limitrate;
-% 
-% end
 
 end
